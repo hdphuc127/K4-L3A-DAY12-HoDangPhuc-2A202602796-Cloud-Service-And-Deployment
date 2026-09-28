@@ -16,11 +16,14 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from utils.mock_llm import ask_llm
+from utils.mock_llm import ask_llm as ask_mock_llm
+from utils.openai_llm import ask_llm as ask_openai_llm
 
 from .auth import verify_api_key
 from .config import get_settings
@@ -68,6 +71,12 @@ app = FastAPI(title="Day 12 Production Agent", version=SERVICE_VERSION, lifespan
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
+
+
+@app.get("/demo")
+def demo():
+    """UI tĩnh để demo trực quan các tình huống production (auth, state, rate limit, cost guard)."""
+    return FileResponse(Path(__file__).parent / "static" / "demo.html")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -154,7 +163,13 @@ def ask(
     limiter.check(user_id)
     guard.check(user_id)
     history = store.get_history(user_id)
-    result = ask_llm(payload.question, history)
+    settings = get_settings()
+    if settings.openai_api_key:
+        result = ask_openai_llm(
+            payload.question, history, api_key=settings.openai_api_key, model=settings.openai_model
+        )
+    else:
+        result = ask_mock_llm(payload.question, history)
     store.append(user_id, "user", payload.question)
     store.append(user_id, "assistant", result["answer"])
     guard.record(user_id, result["cost_usd"])

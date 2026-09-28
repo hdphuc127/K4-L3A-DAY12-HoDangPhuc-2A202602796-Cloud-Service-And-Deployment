@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     monthly_budget_usd: float = 10.0
     log_level: str = "INFO"
 
+    # LLM thật qua OpenAI API. Để trống -> dùng mock_llm (không tốn tiền, ổn định cho test).
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
