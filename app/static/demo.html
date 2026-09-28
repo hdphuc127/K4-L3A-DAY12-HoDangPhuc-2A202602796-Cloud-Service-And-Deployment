@@ -2,124 +2,119 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<title>Day 12 Agent — Demo</title>
+<title>Day 12 Agent — Live Demo</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 820px; margin: 2rem auto; padding: 0 1rem; background: #0b0e14; color: #e6e6e6; }
-  h1 { font-size: 1.3rem; }
-  .card { background: #151a24; border: 1px solid #2a3040; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-  .card h2 { margin-top: 0; font-size: 1rem; color: #9cd1ff; }
-  .card p { color: #a0a6b3; font-size: 0.85rem; }
-  input { background: #0b0e14; color: #e6e6e6; border: 1px solid #2a3040; border-radius: 4px; padding: 0.4rem; margin-right: 0.4rem; }
-  button { background: #2b6fe0; color: white; border: none; border-radius: 4px; padding: 0.5rem 0.9rem; cursor: pointer; margin: 0.15rem; }
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 1.5rem auto; padding: 0 1rem; background: #0b0e14; color: #e6e6e6; }
+  h1 { font-size: 1.2rem; margin-bottom: 0.2rem; }
+  .sub { color: #a0a6b3; font-size: 0.85rem; margin-top: 0; }
+
+  .bar { display: flex; gap: 0.5rem; align-items: center; background: #151a24; border: 1px solid #2a3040; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+  .bar input { flex: 1 1 160px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #555; display: inline-block; margin-right: 0.35rem; }
+  .dot.ok { background: #6ee08a; } .dot.bad { background: #f06060; }
+
+  input { background: #0b0e14; color: #e6e6e6; border: 1px solid #2a3040; border-radius: 4px; padding: 0.4rem 0.5rem; }
+  button { background: #2b6fe0; color: white; border: none; border-radius: 4px; padding: 0.5rem 0.9rem; cursor: pointer; }
   button:hover { background: #3f82f5; }
-  button.danger { background: #b23b3b; }
-  pre { background: #05070b; padding: 0.6rem; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.8rem; }
-  .status-200 { color: #6ee08a; } .status-4 { color: #f0b45c; } .status-err { color: #f06060; }
+  button:disabled { background: #2a3040; cursor: not-allowed; }
+
+  #chat { background: #10141d; border: 1px solid #2a3040; border-radius: 8px; padding: 1rem; height: 420px; overflow-y: auto; margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .msg { max-width: 80%; padding: 0.5rem 0.7rem; border-radius: 8px; font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: #2b6fe0; }
+  .msg.assistant { align-self: flex-start; background: #232a38; }
+  .msg.system { align-self: center; background: transparent; color: #f0b45c; font-size: 0.8rem; border: 1px dashed #4a3a20; }
+  .meta { font-size: 0.7rem; color: #8892a0; margin-top: 0.25rem; }
+
+  .composer { display: flex; gap: 0.5rem; }
+  .composer input { flex: 1; }
 </style>
 </head>
 <body>
-<h1>🧪 Day 12 Production Agent — Demo UI</h1>
-<p style="color:#a0a6b3">Bấm từng nút theo thứ tự để xem hành vi production của service (health, auth, state, rate limit, cost guard).</p>
+<h1>🧪 Day 12 Production Agent — Live Demo</h1>
+<p class="sub">Gõ câu hỏi thật và bấm Gửi. Đây là end-to-end thật: auth, state (Redis), rate limit, cost guard, và LLM đều chạy sống — không phải kịch bản dựng sẵn.</p>
 
-<div class="card">
-  <h2>1. Liveness / Readiness</h2>
-  <p>/health không đụng Redis; /ready có ping Redis.</p>
-  <button onclick="call('GET','/health',null,'out1')">GET /health</button>
-  <button onclick="call('GET','/ready',null,'out1')">GET /ready</button>
-  <pre id="out1"></pre>
+<div class="bar">
+  <span><span id="healthDot" class="dot"></span>health</span>
+  <span><span id="readyDot" class="dot"></span>ready</span>
+  <input id="apiKey" placeholder="X-API-Key" style="flex:1 1 200px">
+  <input id="userId" value="demo-user" placeholder="X-User-Id" style="flex:0 1 120px">
 </div>
 
-<div class="card">
-  <h2>2. Bảo mật API key</h2>
-  <p>Không key → 401. So khớp key dùng compare_digest (chống timing attack).</p>
-  <input id="apiKey" placeholder="X-API-Key" style="width:220px">
-  <br>
-  <button class="danger" onclick="ask(null,'demo','hi','out2')">Gọi /ask KHÔNG có key</button>
-  <button onclick="ask(apiKey(),'demo','Xin chao','out2')">Gọi /ask CÓ key</button>
-  <pre id="out2"></pre>
-</div>
+<div id="chat"></div>
 
-<div class="card">
-  <h2>3. State qua Redis (history_length)</h2>
-  <p>Gọi 2 lần cùng user_id — lần 2 phải có history_length > 0.</p>
-  <input id="userId" value="demo-user" placeholder="X-User-Id">
-  <button onclick="ask(apiKey(),userId(),'Cau hoi 1','out3')">Gọi lần 1</button>
-  <button onclick="ask(apiKey(),userId(),'Cau hoi 2','out3')">Gọi lần 2</button>
-  <pre id="out3"></pre>
-</div>
-
-<div class="card">
-  <h2>4. Rate limit (sliding window)</h2>
-  <p>Bắn 15 request liên tiếp cho cùng user_id — sẽ thấy 429 xuất hiện.</p>
-  <button onclick="spam('out4')">Bắn 15 request</button>
-  <pre id="out4"></pre>
-</div>
-
-<div class="card">
-  <h2>5. Cost guard</h2>
-  <p>Nếu MONTHLY_BUDGET_USD nhỏ, gọi liên tục sẽ chạm 402 trước khi tốn thêm tiền LLM.</p>
-  <button onclick="spamCost('out5')">Gọi tới khi hết ngân sách (tối đa 30 lần)</button>
-  <pre id="out5"></pre>
+<div class="composer">
+  <input id="question" placeholder="Nhập câu hỏi..." onkeydown="if(event.key==='Enter') send()">
+  <button id="sendBtn" onclick="send()">Gửi</button>
 </div>
 
 <script>
-function apiKey(){ return document.getElementById('apiKey').value; }
-function userId(){ return document.getElementById('userId').value || 'demo-user'; }
+const chat = document.getElementById('chat');
 
-function fmt(status){
-  const cls = status===200 ? 'status-200' : (status>=400 && status<500 ? 'status-4' : 'status-err');
-  return `<span class="${cls}">${status}</span>`;
+function addMsg(role, text, meta){
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  if (meta) {
+    const m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = meta;
+    div.appendChild(m);
+  }
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
 
-async function call(method, path, body, outId){
-  const out = document.getElementById(outId);
+async function checkHealth(){
   try {
-    const res = await fetch(path, { method, headers: body ? {'Content-Type':'application/json'} : {}, body: body ? JSON.stringify(body) : undefined });
-    const text = await res.text();
-    out.innerHTML = `${method} ${path} -> ${fmt(res.status)}\n${text}`;
-  } catch (e) {
-    out.textContent = 'Lỗi: ' + e;
+    const h = await fetch('/health');
+    document.getElementById('healthDot').className = 'dot ' + (h.ok ? 'ok' : 'bad');
+    const r = await fetch('/ready');
+    document.getElementById('readyDot').className = 'dot ' + (r.ok ? 'ok' : 'bad');
+  } catch {
+    document.getElementById('healthDot').className = 'dot bad';
+    document.getElementById('readyDot').className = 'dot bad';
   }
 }
+checkHealth();
+setInterval(checkHealth, 5000);
 
-async function ask(key, uid, question, outId){
-  const out = document.getElementById(outId);
-  const headers = {'Content-Type':'application/json', 'X-User-Id': uid};
-  if (key) headers['X-API-Key'] = key;
+async function send(){
+  const qInput = document.getElementById('question');
+  const question = qInput.value.trim();
+  if (!question) return;
+  const apiKey = document.getElementById('apiKey').value;
+  const userId = document.getElementById('userId').value || 'demo-user';
+
+  addMsg('user', question);
+  qInput.value = '';
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+
+  const headers = {'Content-Type':'application/json', 'X-User-Id': userId};
+  if (apiKey) headers['X-API-Key'] = apiKey;
+
   try {
     const res = await fetch('/ask', { method:'POST', headers, body: JSON.stringify({question}) });
-    const text = await res.text();
-    out.innerHTML = `POST /ask (key=${key ? 'yes' : 'NO'}) -> ${fmt(res.status)}\n${text}`;
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 401) {
+      addMsg('system', '401 Unauthorized — thiếu hoặc sai X-API-Key.');
+    } else if (res.status === 429) {
+      addMsg('system', '429 Too Many Requests — vượt rate limit, đợi rồi thử lại.');
+    } else if (res.status === 402) {
+      addMsg('system', '402 Payment Required — user này đã hết ngân sách tháng.');
+    } else if (!res.ok) {
+      addMsg('system', `Lỗi ${res.status}: ${JSON.stringify(data)}`);
+    } else {
+      const meta = `history_length=${data.history_length} · tokens in/out=${data.tokens?.in}/${data.tokens?.out} · cost=$${data.cost_usd}`;
+      addMsg('assistant', data.answer, meta);
+    }
   } catch (e) {
-    out.textContent = 'Lỗi: ' + e;
+    addMsg('system', 'Lỗi kết nối: ' + e);
+  } finally {
+    btn.disabled = false;
+    qInput.focus();
   }
-}
-
-async function spam(outId){
-  const out = document.getElementById(outId);
-  out.textContent = 'Đang gọi...';
-  const codes = [];
-  for (let i=0;i<15;i++){
-    const res = await fetch('/ask', { method:'POST',
-      headers: {'Content-Type':'application/json','X-API-Key': apiKey(),'X-User-Id':'rate-test'},
-      body: JSON.stringify({question:'spam'}) });
-    codes.push(res.status);
-  }
-  out.innerHTML = codes.map(fmt).join(' ');
-}
-
-async function spamCost(outId){
-  const out = document.getElementById(outId);
-  out.textContent = 'Đang gọi...';
-  const codes = [];
-  for (let i=0;i<30;i++){
-    const res = await fetch('/ask', { method:'POST',
-      headers: {'Content-Type':'application/json','X-API-Key': apiKey(),'X-User-Id':'budget-test'},
-      body: JSON.stringify({question:'cost test '+i}) });
-    codes.push(res.status);
-    if (res.status === 402) break;
-  }
-  out.innerHTML = codes.map(fmt).join(' ');
 }
 </script>
 </body>
