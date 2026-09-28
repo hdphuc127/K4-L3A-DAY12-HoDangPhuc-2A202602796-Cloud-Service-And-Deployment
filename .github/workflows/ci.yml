@@ -39,5 +39,5 @@ jobs:
         run: sleep 30
       - name: Smoke test
         run: |
-          curl --fail --retry 8 --retry-delay 10 --retry-connrefused "https://k4-l3a-day12-hodangphuc-2a202602796.onrender.com/health"
-          curl --fail --retry 8 --retry-delay 10 --retry-connrefused "https://k4-l3a-day12-hodangphuc-2a202602796.onrender.com/ready"
+          curl --fail --retry 8 --retry-delay 10 --retry-connrefused "https://k4-l3a-day12-hodangphuc-2a202602796-ydt7.onrender.com/health"
+          curl --fail --retry 8 --retry-delay 10 --retry-connrefused "https://k4-l3a-day12-hodangphuc-2a202602796-ydt7.onrender.com/ready"
